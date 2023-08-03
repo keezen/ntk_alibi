@@ -58,6 +58,7 @@ def build_alibi_tensor(attention_mask: torch.Tensor, num_heads: int, dtype: torc
 - 数据集：LongEval，包含topics和lines两个任务，针对不同输入长度各有50条长文本
 - 基线模型：bigscience/bloom-1b7，预训练长度2048
 - 实验结果：topics 5，推理长度约3K
+
 | 方法 |	准确率/% |
 | ----- | ----- |
 | 原始ALiBi编码 |	2 |
@@ -65,11 +66,13 @@ def build_alibi_tensor(attention_mask: torch.Tensor, num_heads: int, dtype: torc
 | NTK-ALiBi插值, a=2 |	96 |
 
 - 实验结果：lines 200，推理长度约5K
-|方法|	准确率/%|
+
+| 方法 |	准确率/% |
 | ----- | ----- |
 |原始ALiBi编码|	0|
 |内插值, a=2|	30|
 |NTK-ALiBi插值, a=2|	40|
+
 - 结果分析：ALiBi编码进行插值后，无须进行任何微调，在大约两倍训练长度的外推长度（3～5K）上，均取得了显著的效果提升。加上NTK-ALiBi插值后，效果进一步提升。
 - 不足：受限于资源和时间，本文并未在更多任务和缩放系数上进行实验，欢迎讨论和补充。
 
