@@ -1,4 +1,7 @@
 # NTK-ALiBi：通过插值实现ALiBi编码的长文本外推
+
+[English version](readme_en.md)
+
 ## 简介
 - 针对ALiBi位置编码在长文本中注意力视野有限的问题，本文提出了基于ALiBi编码的两种插值方法：内插值和NTK-ALiBi插值。
 - 实验表明：无需微调情况下，插值方法能够有效扩大ALiBi编码的注意力视野，提高长文本上的任务效果。
