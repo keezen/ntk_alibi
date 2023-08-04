@@ -24,6 +24,11 @@
     - m_h = 1 / {2^(8h/H) * a^((h-1)/(H-1))}
     - 令b = a^(1/(H-1)), 则有：m_h = b / {2^(8/H) * b}^h
     - NTK改进后可以实现高频分辨率不变，低频视野放大的效果
+
+- 解释：NTK-ALiBi的公式看起来可能有些难懂，但核心思想与苏建林大佬所说的[“高频外推，低频内插”](https://kexue.fm/archives/9675)相同。下面从两种情况考虑：
+    - h=1时，视野较小，为高频情况。m_h = 1 / 2^(8/H)，与原始偏置系数相同，相当于直接外推，因此是高频外推。高频视野分辨率不变。
+    - h=H时，视野较大，为低频情况。m_h = 1 / {2^8 * a}，在原始偏置基础上缩减了a倍，等价于对位置进行了内插值，因此是低频内插。低频视野变大a倍。
+
 - 代码：修改自https://github.com/huggingface/transformers/blob/main/src/transformers/models/bloom/modeling_bloom.py#L86
 ```python
 def build_alibi_tensor(attention_mask: torch.Tensor, num_heads: int, dtype: torch.dtype) -> torch.Tensor:
