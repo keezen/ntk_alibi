@@ -63,6 +63,7 @@ def build_alibi_tensor(attention_mask: torch.Tensor, num_heads: int, dtype: torc
 
 
 ## 实验记录
+### LongEval
 - 数据集：LongEval，包含topics和lines两个任务，针对不同输入长度各有50条长文本
 - 基线模型：bigscience/bloom-1b7，预训练长度2048
 - 实验结果：topics 5，推理长度约3K
@@ -84,6 +85,27 @@ def build_alibi_tensor(attention_mask: torch.Tensor, num_heads: int, dtype: torc
 - 结果分析：ALiBi编码进行插值后，无须进行任何微调，在大约两倍训练长度的外推长度（3～5K）上，均取得了显著的效果提升。加上NTK-ALiBi插值后，效果进一步提升。
 - 不足：受限于资源和时间，本文并未在更多任务和缩放系数上进行实验，欢迎讨论和补充。
 
+### LongBench
+- 数据集：LongBench
+    - TREC：小样本文本分类任务，推理长度约5K
+- 基线模型：bigscience/1b7，预训练长度2048
+- 实验结果：TREC
+
+｜ 方法 ｜	准确率/% ｜
+| ----- | ----- |
+｜ Bloom-1B7, 原始ALiBi编码	｜ 13.0 ｜
+｜ Bloom-1B7, NTK-ALiBi插值, a=4 ｜	61.5 ｜
+｜ \*GPT-3.5-Turbo-16k ｜	68.0 ｜
+｜ \*Llama2-7B-chat-4k ｜	60.5 ｜
+｜ \*ChatGLM2-6B ｜	44.0 ｜
+｜ \*ChatGLM2-6B-32k ｜	62.0 ｜
+
+注：*结果摘自https://github.com/THUDM/LongBench
+
+- 结果分析：
+    - ALiBi编码进行NTK插值后，无须进行任何微调，在TREC文本分类任务上取得显著提升13.0%->61.5%。
+    - NTK-ALiBi编码后的Bloom-1B7模型，TREC文本分类准确率明显好于ChatGLM2-6B，与Llama2-7B-chat-4k和ChatGLM2-6B-32k效果接近。
+
 
 ## 参考文献
 - NTK-Aware Scaled RoPE allows LLaMA models to have extended (8k+) context size without any fine-tuning and minimal perplexity degradation: https://www.reddit.com/r/LocalLLaMA/comments/14lz7j5/ntkaware_scaled_rope_allows_llama_models_to_have/
@@ -93,3 +115,16 @@ def build_alibi_tensor(attention_mask: torch.Tensor, num_heads: int, dtype: torc
 - Bloom-1B7: https://huggingface.co/bigscience/bloom-1b7
 - Press. Train Short, Test Long: Attention with Linear Biases Enables Input Length Extrapolation. ICLR. 2022. (ALiBi.)
 - Chen. Extending Context Window of Large Language Models via Positional Interpolation. 2023. (Meta.)
+
+
+## 引用
+欢迎转载和引用，但请指明出处和链接：
+```
+@misc{NtkAlibi2023,
+    title = {NTK-ALiBi：通过插值实现大模型ALiBi位置编码的长文本外推},
+    url = {https://github.com/keezen/ntk_alibi},
+    author = { },
+    month = {August},
+    year = {2023}
+}
+```
