@@ -62,7 +62,7 @@ def build_alibi_tensor(attention_mask: torch.Tensor, num_heads: int, dtype: torc
 ```
 
 ## Experiment
-
+### LongEval
 - Dataset: LongEval, including topics and lines tasks, with 50 long texts for each task at different input lengths
 - Baseline model: bigscience/bloom-1b7, pre-training length 2048
 - Experiment result: topics 5, inference length about 3K
@@ -84,6 +84,28 @@ def build_alibi_tensor(attention_mask: torch.Tensor, num_heads: int, dtype: torc
 - Result analysis: After interpolation of ALiBi encoding, without any fine-tuning, significant performance improvements were achieved on extrapolation lengths of about twice the training length (3~5K). Adding NTK-ALiBi interpolation further improved the performance.
 - Limitations: Due to resource and time constraints, this paper did not conduct experiments on more tasks and scaling factors. Discussions and supplements are welcome.
 
+### LongBench
+- Dataset: LongBench
+    - TREC: Few-shot text classification task, inference length about 5K
+- Baseline model: bigscience/1b7, pre-training length 2048
+- Experimental results: TREC
+
+|  Method  |	  Accuracy/%  |
+| ------ | ----- |
+| Bloom-1B7, original ALiBi encoding	| 13.0 |
+| Bloom-1B7, NTK-ALiBi interpolation, a=4 |	61.5 |
+| \*GPT-3.5-Turbo-16k |	68.0 |
+| \*Llama2-7B-chat-4k |	60.5 |
+| \*ChatGLM2-6B |	44.0 |
+| \*ChatGLM2-6B-32k |	62.0 |
+
+Note: *Results are taken from https://github.com/THUDM/LongBench
+
+- Result analysis:
+    - After NTK interpolation of ALiBi encoding, without any fine-tuning, a significant improvement is achieved in the TREC text classification task from 13.0% to 61.5%.
+    - The Bloom-1B7 model with NTK-ALiBi encoding has a significantly better TREC text classification accuracy than ChatGLM2-6B, and is close to the performance of Llama2-7B-chat-4k and ChatGLM2-6B-32k.
+
+
 ## References
 
 - NTK-Aware Scaled RoPE allows LLaMA models to have extended (8k+) context size without any fine-tuning and minimal perplexity degradation: https://www.reddit.com/r/LocalLLaMA/comments/14lz7j5/ntkaware_scaled_rope_allows_llama_models_to_have/
@@ -93,3 +115,16 @@ def build_alibi_tensor(attention_mask: torch.Tensor, num_heads: int, dtype: torc
 - Bloom-1B7: https://huggingface.co/bigscience/bloom-1b7
 - Press. Train Short, Test Long: Attention with Linear Biases Enables Input Length Extrapolation. ICLR. 2022. (ALiBi.)
 - Chen. Extending Context Window of Large Language Models via Positional Interpolation. 2023. (Meta.)
+
+
+## Citation
+If you find this repo to be useful, plese cite:
+```
+@misc{NtkAlibi2023,
+    title = {NTK-ALiBi: Long Text Extrapolation of ALiBi Position Encoding through Interpolation},
+    url = {https://github.com/keezen/ntk_alibi},
+    author = { },
+    month = {August},
+    year = {2023}
+}
+```
