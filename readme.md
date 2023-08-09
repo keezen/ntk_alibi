@@ -91,7 +91,7 @@ def build_alibi_tensor(attention_mask: torch.Tensor, num_heads: int, dtype: torc
 - 基线模型：bigscience/1b7，预训练长度2048
 - 实验结果：TREC
 
-| 方法 |	准确率/% ｜
+| 方法 |	准确率/% |
 | ----- | ----- |
 | Bloom-1B7, 原始ALiBi编码	| 13.0 |
 | Bloom-1B7, NTK-ALiBi插值, a=4 |	61.5 |
