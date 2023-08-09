@@ -112,6 +112,7 @@ def build_alibi_tensor(attention_mask: torch.Tensor, num_heads: int, dtype: torc
 - Transformer升级之路：10、RoPE是一种β进制编码: https://kexue.fm/archives/9675
 - How Long Can Open-Source LLMs Truly Promise on Context Length?: https://lmsys.org/blog/2023-06-29-longchat/
 - LongEval: https://github.com/DachengLi1/LongChat
+- LongBench: https://github.com/THUDM/LongBench
 - Bloom-1B7: https://huggingface.co/bigscience/bloom-1b7
 - Press. Train Short, Test Long: Attention with Linear Biases Enables Input Length Extrapolation. ICLR. 2022. (ALiBi.)
 - Chen. Extending Context Window of Large Language Models via Positional Interpolation. 2023. (Meta.)
