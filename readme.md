@@ -61,6 +61,50 @@ def build_alibi_tensor(attention_mask: torch.Tensor, num_heads: int, dtype: torc
     return alibi.reshape(batch_size * num_heads, 1, seq_length).to(dtype)
 ```
 
+## Dynamic NTK-ALiBi
+- 动态插值：有读者发现，在使用NTK-ALiBi插值时，在长的推理长度上，缩放系数a较大更好；在短的推理文本上，缩放系数a较小更好。因此，我们可以对NTK-ALiBi插值进行改进，针对不同的推理长度动态设定不同的缩放系数a，即为动态插值。
+    - 注：RoPE编码中也有类似的动态插值方法，参见文献中的Dynamically Scaled RoPE。
+
+- Dynamic NTK-ALiBi：根据推理长度动态设定NTK缩放系数a，推理长度越长a越大。动态缩放系数a有多种实现方法，这里提供一种简单方案：
+    - a = max(a0 * L_infer / L_train, 1.0)
+    - 其中，a0为缩放速率，通常设为1.0-2.0之间。L_infer为推理长度，L_train为训练长度。偏置系数m_h与缩放系数a的关系与NTK-ALiBi相同。
+
+- 代码实现：
+```python
+def build_alibi_tensor(attention_mask: torch.Tensor, num_heads: int, dtype: torch.dtype) -> torch.Tensor:
+    """Psuedo code for Dynamic NTK-ALiBi."""
+    batch_size, seq_length = attention_mask.shape
+
+    # dynamic ntk factor according to actual sequence length
+    a0 = 1.0
+    train_seq_len = 2048
+    dynamic_seq_len = attention_mask.sum(dim=-1, keepdim=True)  # [batch, 1]
+    a = a0 * dynamic_seq_len / train_seq_len  # [batch, 1]
+    a = a.masked_fill(a < 1.0, 1.0)  # dynamic step 1: dynamic ntk scaling factor
+
+    scale = a ** (1.0 / (num_heads-1))  # dynamic step 2: coefficient b, for computation convenience
+    closest_power_of_2 = 2 ** math.floor(math.log2(num_heads))
+    base = torch.tensor(
+        2 ** (-(2 ** -(math.log2(closest_power_of_2) - 3))), device=attention_mask.device, dtype=torch.float32
+    )
+    base = base / scale  # dynamic step 3: divide b to alibi base
+    powers = torch.arange(1, 1 + closest_power_of_2, device=attention_mask.device, dtype=torch.int32)
+    slopes = torch.pow(base, powers)
+    slopes = slopes * scale  # dynamic step 4: fix alibi bias m_h by multiplying b
+
+    if closest_power_of_2 != num_heads:  # todo: fix ntk when num_heads is not power of 2
+        extra_base = torch.tensor(
+            2 ** (-(2 ** -(math.log2(2 * closest_power_of_2) - 3))), device=attention_mask.device, dtype=torch.float32
+        )
+        num_remaining_heads = min(closest_power_of_2, num_heads - closest_power_of_2)
+        extra_powers = torch.arange(1, 1 + 2 * num_remaining_heads, 2, device=attention_mask.device, dtype=torch.int32)
+        slopes = torch.cat([slopes, torch.pow(extra_base, extra_powers)], dim=0)
+
+    arange_tensor = ((attention_mask.cumsum(dim=-1) - 1) * attention_mask)[:, None, :]
+    alibi = slopes[..., None] * arange_tensor
+    return alibi.reshape(batch_size * num_heads, 1, seq_length).to(dtype)
+```
+
 
 ## 实验记录
 ### LongEval
@@ -88,8 +132,10 @@ def build_alibi_tensor(attention_mask: torch.Tensor, num_heads: int, dtype: torc
 ### LongBench
 - 数据集：LongBench
     - TREC：小样本文本分类任务，推理长度约5K
+    - MultiFieldQA-en：英文单篇文档问答任务，文档所属的领域相对多元，推理长度约6K
 - 基线模型：bigscience/1b7，预训练长度2048
 - 实验结果：TREC
+    - 注：*结果摘自https://github.com/THUDM/LongBench
 
 | 方法 |	准确率/% |
 | ----- | ----- |
@@ -100,15 +146,27 @@ def build_alibi_tensor(attention_mask: torch.Tensor, num_heads: int, dtype: torc
 | \*ChatGLM2-6B |	44.0 |
 | \*ChatGLM2-6B-32k |	62.0 |
 
-注：*结果摘自https://github.com/THUDM/LongBench
+- 实验结果：MultiFieldQA-en
+
+| 方法 |	准确率/% |
+| ----- | ----- |
+| Bloom-1B7, 原始ALiBi编码	| 8.8 |
+| Bloom-1B7, NTK-ALiBi插值, a=4 | 23.0 |
+| Bloom-1B7, Dynamic NTK-ALiBi, a0=2 | 26.3 |
+| \*GPT-3.5-Turbo-16k |	52.3 |
+| \*Llama2-7B-chat-4k |	35.8 |
+| \*ChatGLM2-6B  |  34.2  |
+| \*ChatGLM2-6B-32k |  45.7  |
 
 - 结果分析：
-    - ALiBi编码进行NTK插值后，无须进行任何微调，在TREC文本分类任务上取得显著提升13.0%->61.5%。
+    - ALiBi编码进行NTK-ALiBi插值后，无须进行任何微调，在长文本TREC文本分类任务和MultiFieldQA-en问答任务上都取得较显著提升。
     - NTK-ALiBi编码后的Bloom-1B7模型，TREC文本分类准确率明显好于ChatGLM2-6B，与Llama2-7B-chat-4k和ChatGLM2-6B-32k效果接近。
+    - 在MultiFieldQA-en文档问答任务上，Dynamic-NTK-ALiBi方法能够取得进一步提升。
 
 
 ## 参考文献
 - NTK-Aware Scaled RoPE allows LLaMA models to have extended (8k+) context size without any fine-tuning and minimal perplexity degradation: https://www.reddit.com/r/LocalLLaMA/comments/14lz7j5/ntkaware_scaled_rope_allows_llama_models_to_have/
+- Dynamically Scaled RoPE further increases performance of long context LLaMA with zero fine-tuning: https://www.reddit.com/r/LocalLLaMA/comments/14mrgpr/dynamically_scaled_rope_further_increases/
 - Transformer升级之路：10、RoPE是一种β进制编码: https://kexue.fm/archives/9675
 - How Long Can Open-Source LLMs Truly Promise on Context Length?: https://lmsys.org/blog/2023-06-29-longchat/
 - LongEval: https://github.com/DachengLi1/LongChat
